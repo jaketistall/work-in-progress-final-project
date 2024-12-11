@@ -3,119 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Game</title>
+    <title>Tetris</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             height: 100vh;
             margin: 0;
-            background-color: #f0f0f0;
-            font-family: Arial, sans-serif;
+            background-color: #000;
+        }
+        .container {
+            display: flex;
+            align-items: flex-start;
         }
         canvas {
+            border: 2px solid #fff;
             background-color: #000;
-            display: block;
         }
-        #score {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #000;
+        h1 {
+            color: white;
+            text-align: center;
+        }
+        .sidebar {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            width: 250px;
+            height: 600px;
+            margin-left: 20px;
+            font-size: 16px;
+        }
+        .sidebar h2 {
             font-size: 20px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #005f6b;
+        }
+        .sidebar p {
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <div id="score">Score: 0</div>
-    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div class="container">
+        <div>
+            <h1>Tetris</h1>
+            <canvas id="tetris" width="300" height="600"></canvas>
+            <button id="restartBtn" onclick="restartGame()" style="display: none;">Restart Game</button>
+        </div>
+        <div class="sidebar">
+            <h2>Controls</h2>
+            <p><strong>Arrow Left</strong>: Move the shape left</p>
+            <p><strong>Arrow Right</strong>: Move the shape right</p>
+            <p><strong>Arrow Down</strong>: Move the shape down faster</p>
+            <p><strong>Arrow Up</strong>: Rotate the shape</p>
+            <h2>Objective</h2>
+            <p>Fit the falling shapes into complete lines. When a line is completed, it disappears.</p>
+            <p>The game ends when the shapes stack to the top of the screen.</p>
+            <h2>Go Back to home page</h2>
+            <a style="color: white;" href="/html/index.html">Main page</a>
+        </div>
+    </div>
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('score');
+        const canvas = document.getElementById("tetris");
+        const ctx = canvas.getContext("2d");
 
-        const gridSize = 20;
-        const canvasSize = canvas.width;
-        const canvasCells = canvasSize / gridSize;
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK_SIZE = 30;
 
-        let snake = [{ x: 10, y: 10 }];
-        let food = { x: 15, y: 15 };
-        let dx = 0;
-        let dy = 0;
-        let score = 0;
-        let isGameStarted = false;
+        const COLORS = [
+            "cyan", "blue", "orange", "yellow", "green", "purple", "red"
+        ];
 
-        function getRandomFoodPosition() {
-            return {
-                x: Math.floor(Math.random() * canvasCells),
-                y: Math.floor(Math.random() * canvasCells)
-            };
+        const SHAPES = [
+            [[1, 1, 1, 1]],  // I
+            [[1, 1], [1, 1]], // O
+            [[0, 1, 0], [1, 1, 1]], // T
+            [[1, 1, 0], [0, 1, 1]], // S
+            [[0, 1, 1], [1, 1, 0]], // Z
+            [[1, 0, 0], [1, 1, 1]], // L
+            [[0, 0, 1], [1, 1, 1]] // J
+        ];
+
+        let board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+        let currentShape = generateRandomShape();
+        let currentPos = { x: 3, y: 0 };
+        let gameOver = false;
+        let timer;
+
+        function generateRandomShape() {
+            const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+            return { shape: SHAPES[shapeIndex], color: COLORS[shapeIndex] };
         }
 
-        function drawCell(x, y, color) {
+        function resetGame() {
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+            currentShape = generateRandomShape();
+            currentPos = { x: 3, y: 0 };
+            gameOver = false;
+            document.getElementById('restartBtn').style.display = 'none';
+            drawBoard();
+            startGame();
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw the board
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    const color = board[y][x];
+                    if (color) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    }
+                }
+            }
+
+            // Draw the current shape
+            const { shape, color } = currentShape;
             ctx.fillStyle = color;
-            ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
-        }
-
-        function drawSnake() {
-            snake.forEach(segment => drawCell(segment.x, segment.y, 'lime'));
-        }
-
-        function drawFood() {
-            drawCell(food.x, food.y, 'red');
-        }
-
-        function updateSnake() {
-            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
-
-            if (head.x === food.x && head.y === food.y) {
-                food = getRandomFoodPosition();
-                score += 10;
-                scoreDisplay.textContent = 'Score: ' + score;
-            } else {
-                snake.pop();
-            }
-
-            snake.unshift(head);
-
-            if (head.x < 0 || head.x >= canvasCells || head.y < 0 || head.y >= canvasCells || snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y)) {
-                clearInterval(gameInterval);
-                alert('Game Over! Your score: ' + score);
-                window.location.reload();
+            for (let y = 0; y < shape.length; y++) {
+                for (let x = 0; x < shape[y].length; x++) {
+                    if (shape[y][x]) {
+                        ctx.fillRect((currentPos.x + x) * BLOCK_SIZE, (currentPos.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    }
+                }
             }
         }
 
-        function gameLoop() {
-            if (isGameStarted) {
-                ctx.clearRect(0, 0, canvasSize, canvasSize);
-                drawFood();
-                updateSnake();
-                drawSnake();
-            } else {
-                drawSnake();
-                drawFood();
+        function rotateShape() {
+            const newShape = currentShape.shape[0].map((_, index) =>
+                currentShape.shape.map(row => row[index])
+            );
+            if (!checkCollision(newShape, currentPos)) {
+                currentShape.shape = newShape;
             }
         }
 
-        document.addEventListener('keydown', e => {
-            switch (e.key) {
-                case 'ArrowUp':
-                    if (dy === 0) { dx = 0; dy = -1; isGameStarted = true; }
-                    break;
-                case 'ArrowDown':
-                    if (dy === 0) { dx = 0; dy = 1; isGameStarted = true; }
-                    break;
-                case 'ArrowLeft':
-                    if (dx === 0) { dx = -1; dy = 0; isGameStarted = true; }
-                    break;
-                case 'ArrowRight':
-                    if (dx === 0) { dx = 1; dy = 0; isGameStarted = true; }
-                    break;
+        function moveShape(dx, dy) {
+            const newPos = { x: currentPos.x + dx, y: currentPos.y + dy };
+            if (!checkCollision(currentShape.shape, newPos)) {
+                currentPos = newPos;
+            } else if (dy === 1) {
+                placeShape();
             }
-        });
+        }
 
-        const gameInterval = setInterval(gameLoop, 100);
+        function checkCollision(shape, pos) {
+            for (let y = 0; y < shape.length; y++) {
+                for (let x = 0; x < shape[y].length; x++) {
+                    if (shape[y][x]) {
+                        const newX = pos.x + x;
+                        const newY = pos.y + y;
+                        if (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && board[newY][newX])) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function placeShape() {
+            const { shape, color } = currentShape;
+            for (let y = 0; y < shape.length; y++) {
+                for (let x = 0; x < shape[y].length; x++) {
+                    if (shape[y][x]) {
+                        board[currentPos.y + y][currentPos.x + x] = color;
+                    }
+                }
+            }
+
+            clearLines();
+            if (currentPos.y <= 0) {
+                gameOver = true;
+                document.getElementById('restartBtn').style.display = 'block';
+            }
+
+            currentShape = generateRandomShape();
+            currentPos = { x: 3, y: 0 };
+        }
+
+        function clearLines() {
+            for (let y = ROWS - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== null)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(COLS).fill(null));
+                }
+            }
+        }
+
+        function startGame() {
+            if (gameOver) return;
+            drawBoard();
+            moveShape(0, 1);
+            if (!gameOver) {
+                setTimeout(startGame, 1000); // Call the game loop with a delay to create game speed
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (gameOver) return;
+            if (event.key === "ArrowLeft") {
+                moveShape(-1, 0);
+            } else if (event.key === "ArrowRight") {
+                moveShape(1, 0);
+            } else if (event.key === "ArrowDown") {
+                moveShape(0, 1);
+            } else if (event.key === "ArrowUp") {
+                rotateShape();
+            }
+        }
+
+        function restartGame() {
+            resetGame();
+        }
+
+        document.addEventListener("keydown", handleKeyPress);
+        window.onload = resetGame;  // Ensures the game starts when the page loads
     </script>
 </body>
 </html>

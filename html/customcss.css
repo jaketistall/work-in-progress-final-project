@@ -1,0 +1,36 @@
+body{
+    background-color:black;
+    color: white;
+    font-family: 'Times New Roman', Times, Serif;
+    text-align: center;
+}
+
+.img-size{
+    height: 500px;
+}
+
+.rainbows{
+    color: rgb(229, 106, 198);
+}
+
+.font{
+    color: rgb(108, 73, 73);
+}
+.brookies{
+    color: red;
+}
+.cutties{
+    color:rgb(153, 187, 217)
+}
+.goldens{
+    color:gold
+}
+.tigers{
+    color:rgb(223, 77, 24)
+}
+
+header{
+    font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    font-size: larger;
+    font-weight: 750;
+}
